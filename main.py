@@ -1,3 +1,5 @@
+#!/usr/bin/env python3
+
 from gevent import monkey; monkey.patch_all()
 import sys
 import time
@@ -105,7 +107,7 @@ def resolve_fn(d, timeout=4):
     return d, ips
 
 
-def resolve(domains, intensity=100, timeout=2, dump=True):
+def resolve(domains, intensity=100, timeout=2, dump=False):
     ips = set()
     res = dict()
     pool = Pool(intensity)
@@ -116,7 +118,6 @@ def resolve(domains, intensity=100, timeout=2, dump=True):
             ips.update(ip)
 
     if dump:
-        print(res)
         filename = time.strftime('%Y%m%d_%H%M%S.resolved.json')
         with open(filename, 'w') as f:
             json.dump(res, f)
@@ -140,9 +141,27 @@ if __name__ == "__main__":
         '--qps', dest='intensity', metavar='QPS', type=int, default=200, help="The number of simultaneous DNS requests"
         )
 
+    parser.add_argument(
+        '--dump', dest='dump', metavar='', type=int, default=True, help="Write resolv dump to disk(0 or 1)"
+        )
+
+    parser.add_argument(
+        '--outfile', dest='outfile', metavar='', type=str, default=None, help="Write output prefix list to disk(0 or 1)"
+        )
+
     args = parser.parse_args()
     i, d = fetch(read_state=args.read, write_state=args.write)
-    r = tuple(resolve(d, intensity=args.intensity))
+    r = tuple(resolve(d, intensity=args.intensity, dump=args.dump))
     s = sorted(tuple(summarize(i, r, target=args.target)))
-    for c, net in enumerate(s):
-        print(c, net)
+
+    if args.outfile:
+        try:
+            with open(args.outfile, 'w') as f:
+                for net in s:
+                    print(net, file=f)
+        except Exception:
+            pass
+
+    else:
+        for c, net in enumerate(s):
+            print(net, file=sys.stdout)
